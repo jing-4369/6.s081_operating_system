@@ -253,6 +253,30 @@ growproc(int n)
   return 0;
 }
 
+int is_lazy_alloc(uint64 addr){
+  //pte_t *pte;
+  struct proc *p = myproc();
+  return addr < p->sz 
+    && addr > PGROUNDUP(p->trapframe->sp) - 1;
+    //&& (((pte = walk(p->pagetable, addr, 0)) == 0)||((*pte & PTE_V)==0));
+
+}
+
+void lazy_alloc(uint64 addr){
+  struct proc *p = myproc();
+  char *mem;
+  if((mem = kalloc()) == 0){
+    p->killed = 1;
+  }
+  else{
+    memset(mem, 0, PGSIZE);
+  if (mappages(myproc()->pagetable, PGROUNDDOWN(addr), PGSIZE, (uint64)mem, PTE_W | PTE_X | PTE_R | PTE_U) != 0)
+  {
+    kfree(mem);
+    myproc()->killed = 1;
+  }
+  }
+}
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
