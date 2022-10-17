@@ -73,13 +73,15 @@ testsymlink(void)
 
   if(write(fd1, buf, sizeof(buf)) != 4)
     fail("failed to write to a");
-
+  
   if (stat_slink("/testsymlink/b", &st) != 0)
     fail("failed to stat b");
+  
   if(st.type != T_SYMLINK)
     fail("b isn't a symlink");
 
   fd2 = open("/testsymlink/b", O_RDWR);
+  
   if(fd2 < 0)
     fail("failed to open b");
   read(fd2, &c, 1);
