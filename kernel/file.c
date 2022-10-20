@@ -12,7 +12,7 @@
 #include "file.h"
 #include "stat.h"
 #include "proc.h"
-
+#include "fcntl.h"
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
@@ -180,3 +180,51 @@ filewrite(struct file *f, uint64 addr, int n)
   return ret;
 }
 
+int mmap_handler(uint64 va, int cause){
+  int i = 0;
+  struct proc *p = myproc();
+
+  for(i = 0; i < NVMA; i++){
+    if(p->vma[i].used && p->vma[i].addr <= va && (p->vma[i].addr + p->vma[i].len - 1) >= va){
+      break;
+    }
+  }
+  if(i == NVMA){
+    return -1;
+
+  }
+
+  int pte_flags = PTE_U;
+  if(p->vma[i].prot & PROT_READ) pte_flags |= PTE_R;
+  if(p->vma[i].prot & PROT_WRITE) pte_flags |= PTE_W;
+  if(p->vma[i].prot & PROT_EXEC) pte_flags |= PTE_X;
+
+  struct file *vf = p->vma[i].vfile;
+  if(cause == 13 && vf->readable == 0) return -1;
+
+  if(cause == 15 && vf->writable == 0) return -1;
+
+  void* pa = kalloc();
+  if(pa == 0)
+    return -1;
+  memset(pa, 0, PGSIZE);
+
+  ilock(vf->ip);
+
+  int offset = p->vma[i].offset + PGROUNDDOWN(va - p->vma[i].addr);
+  int readbytes = readi(vf->ip, 0, (uint64)pa, offset, PGSIZE);
+
+   if(readbytes == 0) {
+    iunlock(vf->ip);
+    kfree(pa);
+    return -1;
+  }
+  iunlock(vf->ip);
+
+  if(mappages(p->pagetable, PGROUNDDOWN(va), PGSIZE, (uint64)pa, pte_flags) != 0) {
+    kfree(pa);
+    return -1;
+  }
+
+  return 0;
+}
