@@ -533,7 +533,6 @@ sys_munmap(void) {
   struct proc* p = myproc();
   for(i = 0; i < NVMA; ++i) {
     if(p->vma[i].used && p->vma[i].len >= length) {
-      // 根据提示，munmap的地址范围只能是
       // 1. 起始位置
       if(p->vma[i].addr == addr) {
         p->vma[i].addr += length;
@@ -550,16 +549,12 @@ sys_munmap(void) {
   if(i == NVMA)
     return -1;
 
-  // 将MAP_SHARED页面写回文件系统
   if(p->vma[i].flags == MAP_SHARED && (p->vma[i].prot & PROT_WRITE) != 0) {
     filewrite(p->vma[i].vfile, addr, length);
   }
 
-  // 判断此页面是否存在映射
   uvmunmap(p->pagetable, addr, length / PGSIZE, 1);
 
-
-  // 当前VMA中全部映射都被取消
   if(p->vma[i].len == 0) {
     fileclose(p->vma[i].vfile);
     p->vma[i].used = 0;
